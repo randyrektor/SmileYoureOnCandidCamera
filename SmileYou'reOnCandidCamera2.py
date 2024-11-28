@@ -70,7 +70,7 @@ class SmileDetector:
     def _initialize_cascades(self):
         """Initialize and verify cascade classifiers"""
         cascade_path = cv2.data.haarcascades
-        self.face_cascade = cv2.CascadeClassifier(cascade_path + 'haarcascade_frontalface_default.xml')
+        self.face_cascade = cv2.CascadeClassifier(cascade_path + 'haarcascade_frontalface_alt2.xml')
         self.smile_cascade = cv2.CascadeClassifier(cascade_path + 'haarcascade_smile.xml')
         
         if self.face_cascade.empty() or self.smile_cascade.empty():
@@ -87,9 +87,9 @@ class SmileDetector:
     def preprocess_frame(self, frame: np.ndarray) -> np.ndarray:
         """Enhanced frame preprocessing with optimized parameters"""
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+        clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8,8)) # reduced from 3.0 to help with glasses
         gray = clahe.apply(gray)
-        gray = cv2.convertScaleAbs(gray, alpha=1.3, beta=15)
+        gray = cv2.convertScaleAbs(gray, alpha=1.2, beta=10) # reduced contrast/brightness to help with glasses
         return cv2.bilateralFilter(gray, 9, 75, 75)
 
     def calculate_target_dimensions(self, frame: np.ndarray) -> Tuple[int, int]:
@@ -107,16 +107,16 @@ class SmileDetector:
         if aspect_ratio > 2.0:  # Ultra-wide formats
             return (
                 int(width * 0.3),
-                int(height * 0.1),
+                int(height * 0.2),
                 int(width * 0.7),
-                int(height * 0.6)
+                int(height * 0.65)
             )
         else:  # Standard/wide formats
             return (
                 int(width * 0.25),
-                int(height * 0.1),
+                int(height * 0.2),
                 int(width * 0.75),
-                int(height * 0.6)
+                int(height * 0.65)
             )
 
     def detect_faces(self, processed_frame: np.ndarray, roi: Tuple[int, int, int, int]) -> List[Tuple[int, int, int, int]]:
@@ -134,9 +134,9 @@ class SmileDetector:
         # Detect frontal faces with optimized parameters
         faces = self.face_cascade.detectMultiScale(
             processed_roi,
-            scaleFactor=1.2,
-            minNeighbors=5,
-            minSize=(50, 50),
+            scaleFactor=1.15, # reduced from 1.2
+            minNeighbors=3, # reduced from 5
+            minSize=(45, 45), # reduced from 50,50
             maxSize=(500, 500)
         )
         
@@ -161,17 +161,17 @@ class SmileDetector:
         face_roi = processed_frame[y:y + h, x:x + w]
         
         # Adjust focus area
-        lower_half_y = int(h * 0.55)  # Moved slightly up from 0.58
+        lower_half_y = int(h * 0.50)  # Moved slightly up from 0.58
         lower_face_roi = face_roi[lower_half_y:, :]
         
         # Slightly more lenient size requirements
-        smile_min_size = (int(w*0.35), int(h*0.18))  # Reduced from 0.4, 0.22
-        smile_max_size = (int(w*0.8), int(h*0.38))
+        smile_min_size = (int(w*0.38), int(h*0.17))  # Reduced from 0.4, 0.22
+        smile_max_size = (int(w*0.85), int(h*0.40))
         
         smiles = self.smile_cascade.detectMultiScale(
             lower_face_roi,
-            scaleFactor=1.1,
-            minNeighbors=65,         # Reduced from 80
+            scaleFactor=1.12,
+            minNeighbors=62,         # Reduced from 80
             minSize=smile_min_size,
             maxSize=smile_max_size
         )
@@ -366,9 +366,9 @@ def process_videos(base_dir: Optional[Path] = None):
         return
     
     config = ProcessingConfig(
-        skip_frames=3,            # Reduced from 4 to catch more potential smiles
-        min_smile_duration=0.3,   # Reduced from 0.4 to allow slightly shorter smiles
-        debug=True,              # Set to True temporarily to see what's being detected
+        skip_frames=8,            # Reduced from 4 to catch more potential smiles
+        min_smile_duration=0.5,   # Reduced from 0.4 to allow slightly shorter smiles
+        debug=False,              # Set to True temporarily to see what's being detected
         frame_buffer_size=2
     )
     
